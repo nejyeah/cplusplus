@@ -1,0 +1,284 @@
+
+CS106 Libraries
+---------------
+
+An open-source implementation of the student libraries for Stanford's 
+course "Programming Abstractions"
+
+ WWW:  http://sourceforge.net/projects/progabstrlib/
+
+Version 0.3 beta
+Posted by Colin Leach
+
+Contents of this README:
+
+1.  Licensing
+2.  Background
+3.  Known Issues at Release
+4.  Source Code, Libraries and Additional Copyright Information
+5.  Compilation Instructions
+
+--------------------------------------------------------------------------------
+
+1.  Licensing
+
+Many of the source files were supplied by Stanford under a Creative Commons 
+Attribution 3.0 license:
+  http://creativecommons.org/licenses/by/3.0/us/
+
+Code added by me is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation.
+
+Please remember that this is open-source software.  You can redistribute the 
+original or modified versions, but you should always include the source code.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+PARTICULAR PURPOSE.
+
+The Qt framework needed for the graphics server is available from Nokia under 
+the GNU General Public License (see section 7).
+
+--------------------------------------------------------------------------------
+
+2.  Background
+
+The undergraduate CS course called Programming Abstractions has been made 
+publicly available as part of the Stanford Engineering Everywhere initiative, 
+including lecture videos and all course materials.  This has proved deservedly 
+popular with students worldwide.  Find this and related courses at:
+  http://see.stanford.edu/see/courses.aspx
+
+For the programming assignments, Stanford supplied a student friendly API as 
+binary-format libraries for the platforms they support: Visual Studio on Windows 
+and XCode on Mac.  This has a few limitations:
+
+- The VS library is version specific.  The one supplied with the SEE course 
+  won't install unless you have already installed VS 2005 (or VC++ Express 2005), 
+  and this is now rare and obsolete.  Newer versions of the library may be 
+  available if you search, e.g. at 
+    http://www.stanford.edu/class/cs106x/materials2/cs106lib
+  but getting them to work with VC++ Express can be tricky (I failed!)
+
+- Linux (and *nix more broadly) is totally unsupported, though lots of external 
+  students would prefer to use this.  Stanford have included some clear hints
+  (in their lectures and handouts) that porting the graphics functions to the 
+  non-standardised world of *nix systems is more effort than they want to invest.
+
+The present software is an attempt to implement the CS106B/X API in an open-source 
+format compatible with the widest possible range of systems.  I am using it to do 
+the programming assignments, and I hope it will be useful to others.
+CAVEAT: I am not a professional programmer and have limited C++ experience 
+(though much more now than before I wrote the graphics code!).  Please view this
+software with a skeptical eye, and share any improvements with the community.
+
+--------------------------------------------------------------------------------
+
+3.  Main features
+
+After compilation (for which see below), you will end up with 2 binary files:
+- cs106lib.a, a static library which you will link into your programs at build time
+- gserv, a graphics server based on the Qt framework
+
+The aim is that you write a (relatively simple) console program to run from the 
+command line, and cs106lib sends any graphics commands via a TCP connection to 
+the graphics server, running as a separate process.  The default connection 
+(localhost, port 30004) was chosen to avoid obvious conflicts, but it can be 
+changed if necessary.
+
+All functions in graphics.h and extgraph.h should work more or less as documented.
+See section 5 for some minor changes.
+
+--------------------------------------------------------------------------------
+
+4.  Known Issues at Release
+
+** Windows incompatibility **
+The code, including assignments such as Maze, was tested successfully on Ubuntu 
+and Fedora, but failed on Windows.
+
+MinGW under Win7 fails to compile at the line #include <sys/socket.h>.  This may
+need a major rewrite to use Winsock2 instead of Posix sockets.
+
+CygWin gives no error messages, but the client code fails to communicate 
+correctly with the graphics server.
+
+** Graphics server must be started manually **
+Do this BEFORE running your own code.  I'm still looking for a portable way for
+InitGraphics() to launch it automatically when necessary.
+
+** Limits on running multiple programs simultaneously **
+The graphics server is a shared resource, and multitasking (e.g. Maze in one 
+window, Boggle in another) fails by default.  You may be able to work around 
+this by running server instances on different ports, but this hasn't been
+tested.
+
+** Graphics area may not size or clip consistently **
+Graphics should be confined within the gray rectangle, but drawing outide this
+has rather unpredictable effects. Resizing the outer window (by dragging the 
+corner) does nothing useful.
+
+** GetXResolution() and GetYResolution() aren't truly implemented **
+No idea how to do this, so both functions just return a const 100 pixels/inch.
+This may not give the scaling you wanted!
+
+--------------------------------------------------------------------------------
+
+5.  Deviations from Stanford documentation
+
+Moving to a client-server model on a different OS forced a few design changes.
+It's not hard to work around these, but you need to be aware of them.
+
+** Graphics **
+
+There is a new function: void SetPort(int port)
+Call this BEFORE the first call to InitGraphics() if you don't want port 30004.
+
+SetWindowSize() is best called right after establishing the connection with the 
+first InitGraphics() call.  It will work at any time, but will also erase your 
+graphics and change font and color to startup defaults.
+
+** Sound **
+
+This should be reliable under Windows, but on *nix systems it relies on NAS 
+(Network Audio System, http://radscan.com/nas.html).
+A new function bool TestAudio() has been added, which return true if sounds 
+shouldplay on your system, false if you have no chance (as currently configured)
+
+** Lexicon **
+
+The copies of lexicon.cpp and lexicon.h supplied with the SEE course cause 
+problems on 64-bit systems.  Nothing trivial: calling the constructor reliably
+crashes the program with a segfault.  I think (as best I can understand this 
+code) that the 2006 version assumes sizeof(long) is 4 bytes, but gcc on AMD64
+versions of Linux uses 8-byte longs.  Globally changing "long" to "int" isn't
+elegant but seems to give working code.  I suggest, when doing assignments:
+  - use my modified lexicon.h
+  - ignore lexicon.cpp, as this is compiled into cs106lib.a
+  - if you don't like this change, the old files have been renamed lexicon32.*
+
+** Maze (and maybe other places) **
+
+gcc is apparently less relaxed than Visual Studio about use of the abs(int) 
+function.  When using it (as maze.cpp does in assignment 2) you need to add 
+#include <cstdlib>
+
+** Boggle **
+
+For obscure reasons, EraseOldScore (in gboggle.cpp) fails to work as intended.
+This may(?) be something odd going on with z-values of overlaid objects.
+Fortunately, SetEraseMode() now works properly for text, so AddScoreForPlayer()
+has been changed to use this instead of EraseOldScore().
+
+** gcc warnings **
+
+Though the ADT size() functions return (signed) int values, string.length() and
+similar standard C++ functions return (unsigned) size_t values.  This gets 
+distracting every time you use something like:
+    for (int i=0; i<str.size(); i++) {}
+If you compile with -Wall (as you should!), it warns about signed vs unsigned
+comparisons.  In my code I've usually declared i as size_t, but there may be a 
+few bits of early code using int(str.size()).
+
+gboggle.cpp is a rich source of gcc warnings - see the revised code for comments 
+on suppressing these.
+
+--------------------------------------------------------------------------------
+
+6.  Files
+
+Directories in the download archive are listed below.  Only the first 3 are 
+important to students taking the course. The others are for debugging use.
+
+  CS106/ - files to make cs106lib.a
+
+  gserv/ - source files for the Qt-based server
+
+  headers/ - files (mostly original Stanford versions) for inclusion in 
+            student projects.
+
+  assign/ - some of the CS106B programming assignments, tweaked as necessary for
+            compilation with g++
+
+
+  testlib/ - unit tests for most of the graphics commands
+
+  lexicon/ - a quick test of the Lexicon class (which has had portability issues)
+
+  simpclient/ - a small console program to communicate with gserv directly.
+             Most people can ignore it, but it may be useful for debugging
+             connection problems.
+
+In the assignments lexicon.cpp is not included, as there is no need to commpile 
+and link this yourself - it is in cs106lib.a.  The source is in CS106/ if you 
+want to look at it.
+
+Unfortunately there is no way to include demo copies of working programs here.
+There are Windows and Mac versions on the Stanford website, and hopefully most 
+students can run one of these, even if they use a *nix system for their own code.
+
+
+--------------------------------------------------------------------------------
+
+7.  Compilation Instructions
+
+** Graphics server **
+
+You will need a copy of the Qt application framework installed.  Linux users 
+may already have it (especially if using KDE) or can get the deb or rpm from 
+the usual repositories.  Others, including Windows users, can get it free (for
+non-commercial users) from
+  http://qt.nokia.com/downloads/
+Only version 4.7 has been tested.  Versions older than 4.2 will certainly fail,
+and 4.2-4.4 are unpredictable.  I have no reason to expect problems with 
+4.5-4.6 but can offer no guarantees.
+
+Compiling the graphics server is (in the usual Qt way) a two-step process:
+In subdirectory gserv/ the command
+   qmake-qt4 gserv.pro -r -spec linux-g++
+will create a custom Makefile, then typing 
+   make
+will compile and link it with gcc.
+
+Alternatively (as I always do), open gserv.pro in QtCreator and use that
+most impressive IDE to build the project (Ctrl-B should be enough).  If you 
+can't find the executable afterwards, look in ../gserv-build-desktop because 
+it likes to avoid mixing source files with builds.
+
+The gserv executable (called gserv.exe on Windows) is the only file you need 
+for assignments.  Either move it to somewhere convenient, or create a link 
+to it.
+
+
+** Object library **
+
+In subdirectory cs106lib/ running make should create the cs106lib.a file.
+That can either be copied to each project directory along with the header 
+files, or you can put it somewhere central and give gcc an absolute or relative
+path to it. 
+
+I'm no expert on Makefiles, but something like this seems to work 
+(with the lib file one level up from your project files)
+
+CC = g++
+DEBUG = -g           # or -g3 -gdwarf2 -o0 for maximum value using gdb
+CFLAGS = -Wall -c $(DEBUG)
+LFLAGS = -Wall $(DEBUG)
+
+PROG = myprog        # changed for each project
+LIB = ../cs106lib.a  # relative path to library file
+OBJS = $(PROG).o     # add any other *.o files needed, e.g. maze.o
+
+all : $(PROG)        # plus any other stuff you need, e.g. etags
+
+$(PROG) : $(OBJS)
+	$(CC) $(LFLAGS) $(OBJS) $(LIB)  -o $(PROG) 
+
+
+** Test code **
+
+These assume that cs106lib.a already exists, at relative path ../CS106/
+You will need to edit the Makefile if the location is different.
+
+
